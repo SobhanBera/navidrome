@@ -5,7 +5,13 @@ import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
 import TableContainer from '@material-ui/core/TableContainer'
 import TableRow from '@material-ui/core/TableRow'
-import { BooleanField, DateField, TextField, useTranslate } from 'react-admin'
+import {
+  BooleanField,
+  DateField,
+  TextField,
+  NumberField,
+  useTranslate,
+} from 'react-admin'
 import inflection from 'inflection'
 import { BitrateField, SizeField } from './index'
 import { MultiLineTextField } from './MultiLineTextField'
@@ -32,6 +38,7 @@ export const SongDetails = (props) => {
     size: <SizeField record={record} source="size" />,
     updatedAt: <DateField record={record} source="updatedAt" showTime />,
     playCount: <TextField record={record} source="playCount" />,
+    bpm: <NumberField record={record} source="bpm" />,
     comment: <MultiLineTextField record={record} source="comment" />,
   }
   if (!record.discSubtitle) {
@@ -39,6 +46,9 @@ export const SongDetails = (props) => {
   }
   if (!record.comment) {
     delete data.comment
+  }
+  if (!record.bpm) {
+    delete data.bpm
   }
   if (record.playCount > 0) {
     data.playDate = <DateField record={record} source="playDate" showTime />
@@ -50,11 +60,7 @@ export const SongDetails = (props) => {
           {Object.keys(data).map((key) => {
             return (
               <TableRow key={`${record.id}-${key}`}>
-                <TableCell
-                  component="th"
-                  scope="row"
-                  className={classes.tableCell}
-                >
+                <TableCell scope="row" className={classes.tableCell}>
                   {translate(`resources.song.fields.${key}`, {
                     _: inflection.humanize(inflection.underscore(key)),
                   })}
