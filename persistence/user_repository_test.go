@@ -2,11 +2,13 @@ package persistence
 
 import (
 	"context"
+	"errors"
 
 	"github.com/astaxie/beego/orm"
 	"github.com/deluan/rest"
 	"github.com/navidrome/navidrome/log"
 	"github.com/navidrome/navidrome/model"
+	"github.com/navidrome/navidrome/tests"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -34,12 +36,17 @@ var _ = Describe("UserRepository", func() {
 			actual, err := repo.Get("123")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(actual.Name).To(Equal("Admin"))
-			Expect(actual.Password).To(Equal("wordpass"))
 		})
 		It("find the user by case-insensitive username", func() {
 			actual, err := repo.FindByUsername("aDmIn")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(actual.Name).To(Equal("Admin"))
+		})
+		It("find the user by username and decrypts the password", func() {
+			actual, err := repo.FindByUsernameWithPassword("aDmIn")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(actual.Name).To(Equal("Admin"))
+			Expect(actual.Password).To(Equal("wordpass"))
 		})
 	})
 
@@ -142,6 +149,34 @@ var _ = Describe("UserRepository", func() {
 				err := validatePasswordChange(&user, loggedUser)
 				Expect(err).To(BeNil())
 			})
+		})
+	})
+	Describe("validateUsernameUnique", func() {
+		var repo *tests.MockedUserRepo
+		var existingUser *model.User
+		BeforeEach(func() {
+			existingUser = &model.User{ID: "1", UserName: "johndoe"}
+			repo = tests.CreateMockUserRepo()
+			err := repo.Put(existingUser)
+			Expect(err).ToNot(HaveOccurred())
+		})
+		It("allows unique usernames", func() {
+			var newUser = &model.User{ID: "2", UserName: "unique_username"}
+			err := validateUsernameUnique(repo, newUser)
+			Expect(err).ToNot(HaveOccurred())
+		})
+		It("returns ValidationError if username already exists", func() {
+			var newUser = &model.User{ID: "2", UserName: "johndoe"}
+			err := validateUsernameUnique(repo, newUser)
+			Expect(err).To(BeAssignableToTypeOf(&rest.ValidationError{}))
+			Expect(err.(*rest.ValidationError).Errors).To(HaveKeyWithValue("userName", "ra.validation.unique"))
+		})
+		It("returns generic error if repository call fails", func() {
+			repo.Err = errors.New("fake error")
+
+			var newUser = &model.User{ID: "2", UserName: "newuser"}
+			err := validateUsernameUnique(repo, newUser)
+			Expect(err).To(MatchError("fake error"))
 		})
 	})
 })

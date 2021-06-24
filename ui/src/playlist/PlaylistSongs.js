@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react'
+import React, { useCallback, useMemo } from 'react'
 import {
   BulkActionsToolbar,
   ListToolbar,
@@ -22,12 +22,14 @@ import {
   SongContextMenu,
   SongDatagrid,
   SongTitleField,
+  QualityInfo,
+  useSelectedFields,
+  useResourceRefresh,
 } from '../common'
 import { AddToPlaylistDialog } from '../dialogs'
 import { AlbumLinkField } from '../song/AlbumLinkField'
 import { playTracks } from '../actions'
 import PlaylistSongBulkActions from './PlaylistSongBulkActions'
-import { QualityInfo } from '../common/QualityInfo'
 
 const useStyles = makeStyles(
   (theme) => ({
@@ -90,6 +92,7 @@ const PlaylistSongs = ({ playlistId, readOnly, actions, ...props }) => {
   const refresh = useRefresh()
   const notify = useNotify()
   const version = useVersion()
+  useResourceRefresh('song', 'playlist')
 
   const onAddToPlaylist = useCallback(
     (pls) => {
@@ -127,6 +130,26 @@ const PlaylistSongs = ({ playlistId, readOnly, actions, ...props }) => {
     [playlistId, reorder, ids]
   )
 
+  const toggleableFields = useMemo(() => {
+    return {
+      trackNumber: isDesktop && <TextField source="id" label={'#'} />,
+      title: <SongTitleField source="title" showTrackNumbers={false} />,
+      album: isDesktop && <AlbumLinkField source="album" />,
+      artist: isDesktop && <TextField source="artist" />,
+      duration: (
+        <DurationField source="duration" className={classes.draggable} />
+      ),
+      quality: isDesktop && <QualityInfo source="quality" sortable={false} />,
+      bpm: isDesktop && <NumberField source="bpm" />,
+    }
+  }, [isDesktop, classes.draggable])
+
+  const columns = useSelectedFields({
+    resource: 'playlistTrack',
+    columns: toggleableFields,
+    defaultOff: ['bpm'],
+  })
+
   return (
     <>
       <ListToolbar
@@ -161,13 +184,7 @@ const PlaylistSongs = ({ playlistId, readOnly, actions, ...props }) => {
               contextAlwaysVisible={!isDesktop}
               classes={{ row: classes.row }}
             >
-              {isDesktop && <TextField source="id" label={'#'} />}
-              <SongTitleField source="title" showTrackNumbers={false} />
-              {isDesktop && <AlbumLinkField source="album" />}
-              {isDesktop && <TextField source="artist" />}
-              <DurationField source="duration" className={classes.draggable} />
-              {isDesktop && <QualityInfo source="quality" sortable={false} />}
-              {isDesktop && <NumberField source="bpm" />}
+              {columns}
               <SongContextMenu
                 onAddToPlaylist={onAddToPlaylist}
                 showLove={false}

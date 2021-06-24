@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import ReactGA from 'react-ga'
 import { useDispatch, useSelector } from 'react-redux'
 import { Link } from 'react-router-dom'
@@ -26,7 +26,7 @@ import PlayerToolbar from './PlayerToolbar'
 import { sendNotification } from '../utils'
 import { keyMap } from '../hotkeys'
 import useCurrentTheme from '../themes/useCurrentTheme'
-import { QualityInfo } from '../common/QualityInfo'
+import { QualityInfo } from '../common'
 
 const useStyle = makeStyles(
   (theme) => ({
@@ -111,7 +111,6 @@ const Player = () => {
   const dataProvider = useDataProvider()
   const dispatch = useDispatch()
   const queue = useSelector((state) => state.queue)
-  const current = queue.current || {}
   const { authenticated } = useAuthState()
   const showNotifications = useSelector(
     (state) => state.settings.notifications || false
@@ -122,6 +121,7 @@ const Player = () => {
   // Match the medium breakpoint defined in the material-ui theme
   // See https://material-ui.com/customization/breakpoints/#breakpoints
   const isDesktop = useMediaQuery('(min-width:810px)')
+  const [startTime, setStartTime] = useState(null)
 
   const nextSong = useCallback(() => {
     const idx = queue.queue.findIndex(
@@ -160,60 +160,64 @@ const Player = () => {
     ),
   }
 
-  const defaultOptions = {
-    theme: playerTheme,
-    bounds: 'body',
-    mode: 'full',
-    autoPlay: false,
-    preload: true,
-    autoPlayInitLoadPlayList: true,
-    loadAudioErrorPlayNext: false,
-    clearPriorAudioLists: false,
-    showDestroy: true,
-    showDownload: false,
-    showReload: false,
-    toggleMode: !isDesktop,
-    glassBg: false,
-    showThemeSwitch: false,
-    showMediaSession: true,
-    restartCurrentOnPrev: true,
-    defaultPosition: {
-      top: 300,
-      left: 120,
-    },
-    volumeFade: { fadeIn: 200, fadeOut: 200 },
-    renderAudioTitle: (audioInfo, isMobile) => (
-      <AudioTitle audioInfo={audioInfo} isMobile={isMobile} />
-    ),
-    locale: {
-      playListsText: translate('player.playListsText'),
-      openText: translate('player.openText'),
-      closeText: translate('player.closeText'),
-      notContentText: translate('player.notContentText'),
-      clickToPlayText: translate('player.clickToPlayText'),
-      clickToPauseText: translate('player.clickToPauseText'),
-      nextTrackText: translate('player.nextTrackText'),
-      previousTrackText: translate('player.previousTrackText'),
-      reloadText: translate('player.reloadText'),
-      volumeText: translate('player.volumeText'),
-      toggleLyricText: translate('player.toggleLyricText'),
-      toggleMiniModeText: translate('player.toggleMiniModeText'),
-      destroyText: translate('player.destroyText'),
-      downloadText: translate('player.downloadText'),
-      removeAudioListsText: translate('player.removeAudioListsText'),
-      clickToDeleteText: (name) =>
-        translate('player.clickToDeleteText', { name }),
-      emptyLyricText: translate('player.emptyLyricText'),
-      playModeText: {
-        order: translate('player.playModeText.order'),
-        orderLoop: translate('player.playModeText.orderLoop'),
-        singleLoop: translate('player.playModeText.singleLoop'),
-        shufflePlay: translate('player.playModeText.shufflePlay'),
+  const defaultOptions = useMemo(
+    () => ({
+      theme: playerTheme,
+      bounds: 'body',
+      mode: 'full',
+      autoPlay: false,
+      preload: true,
+      autoPlayInitLoadPlayList: true,
+      loadAudioErrorPlayNext: false,
+      clearPriorAudioLists: false,
+      showDestroy: true,
+      showDownload: false,
+      showReload: false,
+      toggleMode: !isDesktop,
+      glassBg: false,
+      showThemeSwitch: false,
+      showMediaSession: true,
+      restartCurrentOnPrev: true,
+      defaultPosition: {
+        top: 300,
+        left: 120,
       },
-    },
-  }
+      volumeFade: { fadeIn: 200, fadeOut: 200 },
+      renderAudioTitle: (audioInfo, isMobile) => (
+        <AudioTitle audioInfo={audioInfo} isMobile={isMobile} />
+      ),
+      locale: {
+        playListsText: translate('player.playListsText'),
+        openText: translate('player.openText'),
+        closeText: translate('player.closeText'),
+        notContentText: translate('player.notContentText'),
+        clickToPlayText: translate('player.clickToPlayText'),
+        clickToPauseText: translate('player.clickToPauseText'),
+        nextTrackText: translate('player.nextTrackText'),
+        previousTrackText: translate('player.previousTrackText'),
+        reloadText: translate('player.reloadText'),
+        volumeText: translate('player.volumeText'),
+        toggleLyricText: translate('player.toggleLyricText'),
+        toggleMiniModeText: translate('player.toggleMiniModeText'),
+        destroyText: translate('player.destroyText'),
+        downloadText: translate('player.downloadText'),
+        removeAudioListsText: translate('player.removeAudioListsText'),
+        clickToDeleteText: (name) =>
+          translate('player.clickToDeleteText', { name }),
+        emptyLyricText: translate('player.emptyLyricText'),
+        playModeText: {
+          order: translate('player.playModeText.order'),
+          orderLoop: translate('player.playModeText.orderLoop'),
+          singleLoop: translate('player.playModeText.singleLoop'),
+          shufflePlay: translate('player.playModeText.shufflePlay'),
+        },
+      },
+    }),
+    [isDesktop, playerTheme, translate]
+  )
 
   const options = useMemo(() => {
+    const current = queue.current || {}
     return {
       ...defaultOptions,
       clearPriorAudioLists: queue.clear,
@@ -223,14 +227,7 @@ const Player = () => {
       extendsContent: <PlayerToolbar id={current.trackId} />,
       defaultVolume: queue.volume,
     }
-  }, [
-    queue.clear,
-    queue.queue,
-    queue.volume,
-    queue.playIndex,
-    current,
-    defaultOptions,
-  ])
+  }, [queue, defaultOptions])
 
   const onAudioListsChange = useCallback(
     (currentPlayIndex, audioLists) =>
@@ -246,21 +243,17 @@ const Player = () => {
 
       // See https://www.last.fm/api/scrobbling#when-is-a-scrobble-a-scrobble
       const progress = (info.currentTime / info.duration) * 100
-      if (
-        isNaN(info.duration) ||
-        info.duration < 30 ||
-        (progress < 50 && info.currentTime < 240)
-      ) {
+      if (isNaN(info.duration) || (progress < 50 && info.currentTime < 240)) {
         return
       }
 
       const item = queue.queue.find((item) => item.trackId === info.trackId)
       if (item && !item.scrobbled) {
         dispatch(scrobble(info.trackId, true))
-        subsonic.scrobble(info.trackId, true)
+        subsonic.scrobble(info.trackId, true, startTime)
       }
     },
-    [dispatch, queue.queue]
+    [dispatch, queue.queue, startTime]
   )
 
   const onAudioVolumeChange = useCallback(
@@ -272,10 +265,11 @@ const Player = () => {
   const onAudioPlay = useCallback(
     (info) => {
       dispatch(currentPlaying(info))
+      setStartTime(Date.now())
       if (info.duration) {
         document.title = `${info.name} - ${info.singer} - Navidrome`
         dispatch(scrobble(info.trackId, false))
-        subsonic.scrobble(info.trackId, false)
+        subsonic.nowPlaying(info.trackId)
         if (config.gaTrackingId) {
           ReactGA.event({
             category: 'Player',
